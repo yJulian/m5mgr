@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Runs — m5mgr{% endblock %}
+{% block content %}
+<h1>Runs</h1>
+<form method="get" class="filters">
+  <input type="text" name="name" placeholder="name glob" value="{{ filters.get('name','') }}">
+  <input type="text" name="tag" placeholder="tag" value="{{ filters.get('tag','') }}">
+  <input type="text" name="stat" placeholder="stat filter, e.g. system.cpu.ipc&gt;1.0" value="{{ filters.get('stat','') }}">
+  <input type="text" name="param" placeholder="param filter, e.g. system.cpu.numThreads=4" value="{{ filters.get('param','') }}">
+  <button type="submit">Filter</button>
+</form>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="get" action="{{ url_for('compare') }}">
+<table>
+  <thead>
+    <tr>
+      <th></th><th>id</th><th>name</th><th>created_at</th><th>status</th><th>source</th><th>dumps</th><th>tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in runs %}
+    <tr>
+      <td><input type="checkbox" name="run" value="{{ r['id'] }}"></td>
+      <td><a href="{{ url_for('run_detail', ref=r['id']) }}"><code>{{ r['id'] }}</code></a></td>
+      <td>{{ r['name'] }}</td>
+      <td>{{ r['created_at'] }}</td>
+      <td><span class="status status-{{ r['status'] }}">{{ r['status'] }}</span></td>
+      <td>{{ r['source'] }}</td>
+      <td>{{ r['n_dumps'] }}</td>
+      <td>{{ r['tags'] or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No runs found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if runs %}<button type="submit">Compare selected</button>{% endif %}
+</form>
+{% endblock %}

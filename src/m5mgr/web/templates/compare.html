@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Compare — m5mgr{% endblock %}
+{% block content %}
+<h1>Compare</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if result %}
+<form method="get" class="filters">
+  {% for rm in result['runs'] %}<input type="hidden" name="run" value="{{ rm['id'] }}">{% endfor %}
+  <input type="text" name="stat" placeholder="stat glob, e.g. system.cpu.*" value="{{ stat_globs }}">
+  <button type="submit">Filter</button>
+  <button type="submit" name="format" value="csv">Download CSV</button>
+</form>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>key</th><th>unit</th>
+      {% for rm in result['runs'] %}<th>{{ rm['name'] }} ({{ rm['id'] }})</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in result['rows'] %}
+    <tr>
+      <td>{{ row['key'] }}</td>
+      <td>{{ row['unit'] or '' }}</td>
+      {% for v in row['values'] %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ 2 + result['runs']|length }}">No matching stats.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

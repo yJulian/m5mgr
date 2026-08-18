@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{% if run %}{{ run['name'] }}{% else %}Run{% endif %} — m5mgr{% endblock %}
+{% block content %}
+{% if ambiguous %}
+<h1>Ambiguous reference: {{ ref }}</h1>
+<p>Multiple runs share this name — pick one:</p>
+<ul>
+  {% for m in ambiguous %}
+  <li><a href="{{ url_for('run_detail', ref=m['id']) }}"><code>{{ m['id'] }}</code></a> — {{ m['name'] }} ({{ m['created_at'] }})</li>
+  {% endfor %}
+</ul>
+{% else %}
+<h1>{{ run['name'] }}</h1>
+<p class="meta">
+  id: <code>{{ run['id'] }}</code>
+  · status: <span class="status status-{{ run['status'] }}">{{ run['status'] }}</span>
+  · source: {{ run['source'] }}
+  · created_at: {{ run['created_at'] }}
+  · dumps: {{ run['n_dumps'] }}
+  {% if run['exit_code'] is not none %}· exit_code: {{ run['exit_code'] }}{% endif %}
+  {% if run['duration_seconds'] is not none %}· duration: {{ '%.2f'|format(run['duration_seconds']) }}s{% endif %}
+</p>
+{% if run['tags'] %}<p>tags: {{ run['tags'] }}</p>{% endif %}
+{% if run['notes'] %}<p>notes: {{ run['notes'] }}</p>{% endif %}
+
+<h2>Raw files</h2>
+<ul class="files">
+  {% for fname in ['stats.txt', 'config.json', 'config.ini', 'config.dot.svg', 'citations.bib'] %}
+  <li><a href="{{ url_for('run_file', ref=run['id'], name=fname) }}">{{ fname }}</a></li>
+  {% endfor %}
+</ul>
+
+<h2>Dumps</h2>
+<p class="dump-tabs">
+  {% for d in dumps %}
+  <a href="?dump={{ d['dump_index'] }}{% if stat_globs %}&stat={{ stat_globs }}{% endif %}"
+     class="{{ 'active' if selected_dumps == [d['dump_index']] else '' }}">
+    dump {{ d['dump_index'] }}{% if not d['complete'] %} (partial){% endif %}
+  </a>
+  {% endfor %}
+  <a href="?all_dumps=1{% if stat_globs %}&stat={{ stat_globs }}{% endif %}" class="{{ 'active' if all_dumps_flag else '' }}">all</a>
+</p>
+
+<form method="get" class="filters">
+  {% if all_dumps_flag %}<input type="hidden" name="all_dumps" value="1">{% endif %}
+  <input type="text" name="stat" placeholder="stat glob, e.g. system.cpu.*" value="{{ stat_globs }}">
+  <button type="submit">Filter stats</button>
+</form>
+
+{% for di in selected_dumps %}
+<h3>Dump {{ di }}</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>key</th><th>value</th><th>unit</th><th>description</th></tr></thead>
+  <tbody>
+    {% for s in dump_stats[di] %}
+    <tr>
+      <td>{{ s['key'] }}</td>
+      <td>{{ s['value'] if s['value'] is not none else s['value_text'] }}</td>
+      <td>{{ s['unit'] or '' }}</td>
+      <td>{{ s['description'] or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">(no matching stats)</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endfor %}
+
+<h2>Params</h2>
+<form method="get" class="filters">
+  <input type="text" name="param" placeholder="param glob, e.g. system.cpu.*" value="{{ param_globs }}">
+  <button type="submit">Show params</button>
+</form>
+{% if params %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>key</th><th>value</th><th>type</th></tr></thead>
+  <tbody>
+    {% for p in params %}
+    <tr><td>{{ p['key'] }}</td><td>{{ p['value_text'] or '' }}</td><td>{{ p['value_type'] }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

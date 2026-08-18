@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Example m5out fixtures used only for local testing/demoing, not tracked.
+/input/
