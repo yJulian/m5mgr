@@ -72,3 +72,24 @@ def test_run_gem5_propagates_nonzero_exit_code(tmp_path, monkeypatch):
     )
 
     assert exit_code == 3
+
+
+def test_run_gem5_streams_output_live_and_to_log_files(tmp_path, capfd):
+    staging = tmp_path / "staging4"
+    staging.mkdir()
+    stdout_path = tmp_path / "o.log"
+    stderr_path = tmp_path / "e.log"
+
+    runner.run_gem5(
+        str(FAKE_GEM5),
+        str(staging),
+        ["-re", "script.py"],
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+    )
+
+    captured = capfd.readouterr()
+    assert "fake_gem5: stdout hello" in captured.out
+    assert "fake_gem5: stderr hello" in captured.err
+    assert "fake_gem5: stdout hello" in stdout_path.read_text()
+    assert "fake_gem5: stderr hello" in stderr_path.read_text()

@@ -8,10 +8,14 @@ command line goes to gem5 completely unmodified.
 from __future__ import annotations
 
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
+from typing import IO
 
 _FORBIDDEN_FLAGS = {"-d", "--outdir"}
+_CHUNK_SIZE = 4096
 
 
 class PassthroughArgError(ValueError):
@@ -35,6 +39,27 @@ def build_gem5_argv(gem5_bin: str, staging_dir: str, passthrough_args: list[str]
     return [gem5_bin, "-d", staging_dir, *passthrough_args]
 
 
+def _write_console(console: IO, chunk: bytes) -> None:
+    buffer = getattr(console, "buffer", None)
+    if buffer is not None:
+        buffer.write(chunk)
+    else:
+        console.write(chunk.decode(errors="replace"))
+    console.flush()
+
+
+def _pump(src: IO[bytes], console: IO, log_path: Path) -> None:
+    """Copy src (gem5's stdout or stderr) to both the live console and a log file."""
+    with open(log_path, "wb") as log_file:
+        while True:
+            chunk = src.read(_CHUNK_SIZE)
+            if not chunk:
+                break
+            _write_console(console, chunk)
+            log_file.write(chunk)
+    src.close()
+
+
 def run_gem5(
     gem5_bin: str,
     staging_dir: str,
@@ -43,9 +68,19 @@ def run_gem5(
     stdout_path: Path,
     stderr_path: Path,
 ) -> tuple[int, float]:
+    """Runs gem5, streaming its stdout/stderr live to the console while also
+    saving each to its own log file in staging_dir."""
     argv = build_gem5_argv(gem5_bin, staging_dir, passthrough_args)
     start = time.monotonic()
-    with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
-        proc = subprocess.run(argv, stdout=out, stderr=err)
+
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    t_out = threading.Thread(target=_pump, args=(proc.stdout, sys.stdout, stdout_path))
+    t_err = threading.Thread(target=_pump, args=(proc.stderr, sys.stderr, stderr_path))
+    t_out.start()
+    t_err.start()
+    t_out.join()
+    t_err.join()
+    returncode = proc.wait()
+
     duration = time.monotonic() - start
-    return proc.returncode, duration
+    return returncode, duration

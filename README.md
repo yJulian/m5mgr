@@ -39,6 +39,8 @@ export GEM5_BIN=/path/to/gem5.opt
 
 # Run gem5, passing everything after `--` through unmodified.
 # m5mgr injects its own -d <dir> so it always knows where the m5out lands.
+# gem5's stdout/stderr are streamed live to your terminal as it runs, and
+# also saved to m5mgr.stdout.log / m5mgr.stderr.log alongside the m5out.
 m5mgr run --name my-experiment -- -re configs/my_config.py --some-flag=1
 
 # Ingest a pre-existing m5out directory without invoking gem5 (e.g. the

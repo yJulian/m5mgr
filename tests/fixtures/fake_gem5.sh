@@ -25,6 +25,9 @@ if [ -z "$outdir" ]; then
   exit 1
 fi
 
+echo "fake_gem5: stdout hello"
+echo "fake_gem5: stderr hello" >&2
+
 mkdir -p "$outdir"
 
 cat > "$outdir/stats.txt" <<'EOF'
