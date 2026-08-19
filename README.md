@@ -52,6 +52,11 @@ m5mgr list --stat 'system.cpu.ipc>1.0'
 m5mgr show baseline --stat 'system.cpu.*'
 m5mgr compare baseline my-experiment --stat 'system.cpu.*'
 
+# Repeat --stat/--param to combine multiple filters; --match picks how they
+# combine (default "all" = AND, "any" = OR):
+m5mgr list --stat 'system.cpu.ipc>1.0' --stat 'system.cpu.numCycles<300000' --match all
+m5mgr list --param 'system.cpu.numThreads=4' --param 'system.cpu.numThreads=8' --match any
+
 # Read-only web dashboard.
 m5mgr web
 ```
@@ -60,6 +65,23 @@ Every run gets a name (yours) and a generated, sortable id (printed at the
 end, e.g. `20260818T231955Z-4TZK9P`). Reference a run later by its id, an
 unambiguous id prefix, or its name (name lookups error out if more than one
 run shares that name — pass the id instead).
+
+The web dashboard's `/runs` page lets you check any number of runs and hit
+"Compare selected" to reach `/compare`, which mirrors the CLI's `compare`
+command: a `stat` glob/expression filter, a separate `param` glob filter
+(params are shown as their own section, and — same as the CLI — are shown
+*instead of* stats if `param` is set without `stat`), and CSV download for
+either section. On the Stats table, click any column header to make it the
+baseline: every other column's cells then grow a `(+pct%)`/`(-pct%)` badge
+showing how far that run's value is from the baseline's, for however many
+runs are being compared (not just 2) — click "clear baseline" to go back to
+plain values.
+
+Both `/runs` and `m5mgr list` accept multiple `stat`/`param` filters at once
+(on `/runs`, type several comma-separated expressions into one box; on the
+CLI, repeat `--stat`/`--param`) and a `match` setting for how they combine:
+`all` (AND, the default — a run must satisfy every filter) or `any` (OR — a
+run must satisfy at least one).
 
 ## Commands
 

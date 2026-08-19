@@ -264,8 +264,17 @@ def list_runs(
     tag: str | None = None,
     stat_filters: tuple[tuple[str, str, float], ...] = (),
     param_filters: tuple[tuple[str, str, str], ...] = (),
+    match: str = "all",
     sort: str = "created_at",
 ) -> list[sqlite3.Row]:
+    """List runs, narrowed by name/tag (always required if given) and by
+    stat/param filters, which are combined with each other according to
+    `match`: "all" (AND - a run must satisfy every filter, the default) or
+    "any" (OR - a run must satisfy at least one filter).
+    """
+    if match not in ("all", "any"):
+        raise ValueError(f"match must be 'all' or 'any', got {match!r}")
+
     sort_column = sort if sort in ("created_at", "name") else "created_at"
     rows = conn.execute(f"SELECT * FROM runs ORDER BY {sort_column} DESC").fetchall()
 
@@ -273,10 +282,17 @@ def list_runs(
         rows = [r for r in rows if fnmatch.fnmatch(r["name"], name_glob)]
     if tag:
         rows = [r for r in rows if tag in [t.strip() for t in (r["tags"] or "").split(",") if t.strip()]]
-    for key_glob, op, value in stat_filters:
-        rows = [r for r in rows if _run_matches_stat_filter(conn, r["id"], key_glob, op, value)]
-    for key_glob, op, value in param_filters:
-        rows = [r for r in rows if _run_matches_param_filter(conn, r["id"], key_glob, op, value)]
+
+    predicates = [
+        (lambda r, kg=kg, op=op, v=v: _run_matches_stat_filter(conn, r["id"], kg, op, v))
+        for kg, op, v in stat_filters
+    ] + [
+        (lambda r, kg=kg, op=op, v=v: _run_matches_param_filter(conn, r["id"], kg, op, v))
+        for kg, op, v in param_filters
+    ]
+    if predicates:
+        combine = all if match == "all" else any
+        rows = [r for r in rows if combine(p(r) for p in predicates)]
 
     return rows
 
@@ -306,8 +322,11 @@ def compare_stats(
     run_ids: list[str],
     dump_by_run: dict[str, int] | None = None,
     key_globs: tuple[str, ...] = (),
+    baseline_index: int | None = 0,
 ) -> dict:
-    """Compare stats across runs. First run in run_ids is the baseline for deltas."""
+    """Compare stats across runs. `run_ids[baseline_index]` is the baseline
+    deltas/pct_changes are computed against (default: the first run); pass
+    `baseline_index=None` to skip computing deltas/pct_changes entirely."""
     dump_by_run = dump_by_run or {}
     runs_meta = []
     per_run_stats: dict[str, dict[str, sqlite3.Row]] = {}
@@ -333,7 +352,11 @@ def compare_stats(
             values.append(row["value"] if row else None)
             if row and row["unit"] and unit is None:
                 unit = row["unit"]
-        baseline = values[0] if values else None
+        baseline = (
+            values[baseline_index]
+            if baseline_index is not None and 0 <= baseline_index < len(values)
+            else None
+        )
         deltas = []
         pct_changes = []
         for v in values:
@@ -348,7 +371,7 @@ def compare_stats(
             {"key": key, "unit": unit, "values": values, "deltas": deltas, "pct_changes": pct_changes}
         )
 
-    return {"runs": runs_meta, "rows": result_rows}
+    return {"runs": runs_meta, "rows": result_rows, "baseline_index": baseline_index}
 
 
 def compare_params(

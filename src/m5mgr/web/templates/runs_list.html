@@ -5,8 +5,12 @@
 <form method="get" class="filters">
   <input type="text" name="name" placeholder="name glob" value="{{ filters.get('name','') }}">
   <input type="text" name="tag" placeholder="tag" value="{{ filters.get('tag','') }}">
-  <input type="text" name="stat" placeholder="stat filter, e.g. system.cpu.ipc&gt;1.0" value="{{ filters.get('stat','') }}">
-  <input type="text" name="param" placeholder="param filter, e.g. system.cpu.numThreads=4" value="{{ filters.get('param','') }}">
+  <input type="text" name="stat" placeholder="stat filters, comma-separated, e.g. system.cpu.ipc&gt;1.0, system.cpu.numCycles&lt;300000" value="{{ filters.get('stat','') }}">
+  <input type="text" name="param" placeholder="param filters, comma-separated, e.g. system.cpu.numThreads=4" value="{{ filters.get('param','') }}">
+  <select name="match">
+    <option value="all" {{ 'selected' if filters.get('match','all') == 'all' else '' }}>match all (AND)</option>
+    <option value="any" {{ 'selected' if filters.get('match') == 'any' else '' }}>match any (OR)</option>
+  </select>
   <button type="submit">Filter</button>
 </form>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}

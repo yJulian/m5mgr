@@ -3,19 +3,38 @@
 {% block content %}
 <h1>Compare</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
-{% if result %}
+{% if result or param_result %}
 <form method="get" class="filters">
-  {% for rm in result['runs'] %}<input type="hidden" name="run" value="{{ rm['id'] }}">{% endfor %}
-  <input type="text" name="stat" placeholder="stat glob, e.g. system.cpu.*" value="{{ stat_globs }}">
+  {% for rm in (result or param_result)['runs'] %}<input type="hidden" name="run" value="{{ rm['id'] }}">{% endfor %}
+  {% if result and result['baseline_index'] is not none %}
+  <input type="hidden" name="baseline" value="{{ result['runs'][result['baseline_index']]['id'] }}">
+  {% endif %}
+  <input type="text" name="stat" placeholder="stat globs, comma-separated, e.g. system.accels*, system.mem_ctrls1.dram.busUtil" value="{{ stat_globs }}">
+  <input type="text" name="param" placeholder="param globs, comma-separated, e.g. system.cpu.*, system.mem_ranges" value="{{ param_globs }}">
   <button type="submit">Filter</button>
-  <button type="submit" name="format" value="csv">Download CSV</button>
+  {% if result %}<button type="submit" name="format" value="csv">Download stats CSV</button>{% endif %}
+  {% if param_result %}<button type="submit" name="format" value="params-csv">Download params CSV</button>{% endif %}
 </form>
+
+{% if result %}
+<h2>Stats</h2>
+<p class="meta">
+  Click a column header to show every other value's percent difference from it.
+  {% if result['baseline_index'] is not none %}
+  · baseline: <strong>{{ result['runs'][result['baseline_index']]['name'] or result['runs'][result['baseline_index']]['id'] }}</strong>
+  · <a href="?{{ base_qs }}">clear baseline</a>
+  {% endif %}
+</p>
 <div class="table-wrap">
 <table>
   <thead>
     <tr>
       <th>key</th><th>unit</th>
-      {% for rm in result['runs'] %}<th>{{ rm['name'] }} ({{ rm['id'] }})</th>{% endfor %}
+      {% for rm in result['runs'] %}
+      <th class="{{ 'baseline-col' if loop.index0 == result['baseline_index'] else '' }}">
+        <a href="?{{ base_qs }}&baseline={{ rm['id'] }}" title="Set as baseline for percent differences">{{ rm['name'] or rm['id'] }}</a>
+      </th>
+      {% endfor %}
     </tr>
   </thead>
   <tbody>
@@ -23,7 +42,15 @@
     <tr>
       <td>{{ row['key'] }}</td>
       <td>{{ row['unit'] or '' }}</td>
-      {% for v in row['values'] %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}
+      {% for v in row['values'] %}
+      {% set i = loop.index0 %}
+      <td class="{{ 'baseline-col' if i == result['baseline_index'] else '' }}">
+        {{ format_number(v) if v is not none else '—' }}
+        {% if result['baseline_index'] is not none and i != result['baseline_index'] and row['pct_changes'][i] is not none %}
+        <span class="pct-diff">({{ '%+.1f'|format(row['pct_changes'][i]) }}%)</span>
+        {% endif %}
+      </td>
+      {% endfor %}
     </tr>
     {% else %}
     <tr><td colspan="{{ 2 + result['runs']|length }}">No matching stats.</td></tr>
@@ -31,5 +58,30 @@
   </tbody>
 </table>
 </div>
+{% endif %}
+
+{% if param_result %}
+<h2>Params</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>key</th>
+      {% for rm in param_result['runs'] %}<th>{{ rm['name'] or rm['id'] }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in param_result['rows'] %}
+    <tr>
+      <td>{{ row['key'] }}</td>
+      {% for v in row['values'] %}<td>{{ v if v is not none else '—' }}</td>{% endfor %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ 1 + param_result['runs']|length }}">No matching params.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

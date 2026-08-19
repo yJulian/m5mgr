@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from conftest import FIXTURE_DIRS
@@ -15,6 +17,21 @@ def _import(capsys, home, fixture_name, run_name):
     assert rc == 0
     out = capsys.readouterr().out.strip()
     return out  # the run id
+
+
+def _import_synthetic(capsys, tmp_path, run_name, *, stat_key, stat_value):
+    """Import a minimal, self-contained m5out (no dependency on the
+    gitignored `input/` example fixtures) with exactly one custom stat."""
+    m5out = tmp_path / run_name
+    m5out.mkdir()
+    (m5out / "stats.txt").write_text(
+        "---------- Begin Simulation Statistics ----------\n"
+        f"{stat_key}                      {stat_value}\n"
+        "----------   End Simulation Statistics   ----------\n"
+    )
+    rc = cli.main(["import", str(m5out), "--name", run_name, "--id-only"])
+    assert rc == 0
+    return capsys.readouterr().out.strip()
 
 
 def test_import_list_show_compare(capsys, home):
@@ -107,3 +124,28 @@ def test_default_scope_used_when_unset(capsys, home, monkeypatch):
     monkeypatch.delenv("M5MGR_SCOPE", raising=False)
     _import(capsys, home, "single", "default-scope-run")
     assert (home / "default" / "m5mgr.db").exists()
+
+
+def test_list_match_all_is_default_and_requires_every_filter(capsys, home, tmp_path):
+    _import_synthetic(capsys, tmp_path, "run-a", stat_key="statA", stat_value=1.0)
+    _import_synthetic(capsys, tmp_path, "run-b", stat_key="statB", stat_value=1.0)
+
+    rc = cli.main(["list", "--stat", "statA>=1.0", "--stat", "statB>=1.0"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "run-a" not in out
+    assert "run-b" not in out
+    assert "No runs found." in out
+
+
+def test_list_match_any_matches_either_filter(capsys, home, tmp_path):
+    _import_synthetic(capsys, tmp_path, "run-a", stat_key="statA", stat_value=1.0)
+    _import_synthetic(capsys, tmp_path, "run-b", stat_key="statB", stat_value=1.0)
+    _import_synthetic(capsys, tmp_path, "run-c", stat_key="statC", stat_value=1.0)
+
+    rc = cli.main(["list", "--stat", "statA>=1.0", "--stat", "statB>=1.0", "--match", "any"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "run-a" in out
+    assert "run-b" in out
+    assert "run-c" not in out

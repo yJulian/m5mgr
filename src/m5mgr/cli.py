@@ -17,7 +17,7 @@ usage: m5mgr <command> [args]
 commands:
   run      --name NAME [--outdir DIR] [--tag TAG]... [--notes TEXT] -- <gem5 args...>
   import   PATH --name NAME [--tag TAG]... [--notes TEXT] [--move]
-  list     [--name PATTERN] [--tag TAG] [--stat EXPR]... [--param EXPR]... [--sort created_at|name] [--format table|csv]
+  list     [--name PATTERN] [--tag TAG] [--stat EXPR]... [--param EXPR]... [--match all|any] [--sort created_at|name] [--format table|csv]
   show     REF [--dump N | --all-dumps] [--stat GLOB]... [--param GLOB]... [--format table|csv]
   compare  REF REF... [--dump N] [--stat GLOB]... [--param GLOB]... [--format table|csv] [--output FILE]
   rm       REF [--keep-files] [--yes]
@@ -136,6 +136,8 @@ def cmd_list(argv: list[str]) -> int:
     p.add_argument("--tag")
     p.add_argument("--stat", action="append", default=[], help="KEY<op>VALUE, e.g. 'system.cpu.ipc>1.0'")
     p.add_argument("--param", action="append", default=[], help="KEY<op>VALUE, e.g. 'system.cpu.numThreads=4'")
+    p.add_argument("--match", choices=["all", "any"], default="all",
+                    help="how multiple --stat/--param filters combine: all=AND (default), any=OR")
     p.add_argument("--sort", choices=["created_at", "name"], default="created_at")
     p.add_argument("--format", choices=["table", "csv"], default="table")
     ns = p.parse_args(argv)
@@ -149,7 +151,8 @@ def cmd_list(argv: list[str]) -> int:
 
     conn = db.connect(config.db_path())
     rows = db.list_runs(
-        conn, name_glob=ns.name, tag=ns.tag, stat_filters=stat_filters, param_filters=param_filters, sort=ns.sort
+        conn, name_glob=ns.name, tag=ns.tag, stat_filters=stat_filters, param_filters=param_filters,
+        match=ns.match, sort=ns.sort,
     )
     conn.close()
 

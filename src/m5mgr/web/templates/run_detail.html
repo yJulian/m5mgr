@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if run %}{{ run['name'] }}{% else %}Run{% endif %} — m5mgr{% endblock %}
+{% block title %}{% if run %}{{ run['name'] or run['id'] }}{% else %}Run{% endif %} — m5mgr{% endblock %}
 {% block content %}
 {% if ambiguous %}
 <h1>Ambiguous reference: {{ ref }}</h1>
@@ -10,7 +10,7 @@
   {% endfor %}
 </ul>
 {% else %}
-<h1>{{ run['name'] }}</h1>
+<h1>{{ run['name'] or run['id'] }}</h1>
 <p class="meta">
   id: <code>{{ run['id'] }}</code>
   · status: <span class="status status-{{ run['status'] }}">{{ run['status'] }}</span>
@@ -43,7 +43,7 @@
 
 <form method="get" class="filters">
   {% if all_dumps_flag %}<input type="hidden" name="all_dumps" value="1">{% endif %}
-  <input type="text" name="stat" placeholder="stat glob, e.g. system.cpu.*" value="{{ stat_globs }}">
+  <input type="text" name="stat" placeholder="stat globs, comma-separated, e.g. system.accels*, system.mem_ctrls1.dram.busUtil" value="{{ stat_globs }}">
   <button type="submit">Filter stats</button>
 </form>
 
@@ -70,7 +70,7 @@
 
 <h2>Params</h2>
 <form method="get" class="filters">
-  <input type="text" name="param" placeholder="param glob, e.g. system.cpu.*" value="{{ param_globs }}">
+  <input type="text" name="param" placeholder="param globs, comma-separated, e.g. system.cpu.*, system.mem_ranges" value="{{ param_globs }}">
   <button type="submit">Show params</button>
 </form>
 {% if params %}

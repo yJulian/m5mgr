@@ -150,6 +150,29 @@ tbody tr:hover { background: var(--row-hover); }
   color: var(--accent);
 }
 
+th a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--muted);
+}
+
+th a:hover { border-bottom-color: var(--accent); }
+
+.baseline-col {
+  background: var(--row-hover);
+}
+
+th.baseline-col a {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.pct-diff {
+  margin-left: 4px;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
 ul.files {
   list-style: none;
   padding: 0;

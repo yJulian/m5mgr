@@ -83,6 +83,39 @@ def test_resolve_ref_not_found_raises(conn):
         db.resolve_ref(conn, "nope")
 
 
+def _run_with_stat(conn, rid, name, *, key, value):
+    db.insert_run(conn, _make_run(rid, name))
+    dump = Dump(index=0, line_start=1, line_end=2, complete=True)
+    dump.rows.append(StatRow(key=key, value=value, value_text=str(value)))
+    db.insert_dumps(conn, rid, [dump])
+    db.insert_stats(conn, rid, [dump])
+
+
+def test_list_runs_match_all_requires_every_filter(conn):
+    _run_with_stat(conn, "A", "run-a", key="statA", value=1.0)
+    _run_with_stat(conn, "B", "run-b", key="statB", value=1.0)
+    db.insert_run(conn, _make_run("C", "run-c"))  # matches neither
+
+    filters = (("statA", ">=", 1.0), ("statB", ">=", 1.0))
+    rows = db.list_runs(conn, stat_filters=filters, match="all")
+    assert [r["id"] for r in rows] == []  # no run has both stats
+
+
+def test_list_runs_match_any_matches_either_filter(conn):
+    _run_with_stat(conn, "A", "run-a", key="statA", value=1.0)
+    _run_with_stat(conn, "B", "run-b", key="statB", value=1.0)
+    db.insert_run(conn, _make_run("C", "run-c"))  # matches neither
+
+    filters = (("statA", ">=", 1.0), ("statB", ">=", 1.0))
+    rows = db.list_runs(conn, stat_filters=filters, match="any")
+    assert {r["id"] for r in rows} == {"A", "B"}
+
+
+def test_list_runs_invalid_match_raises(conn):
+    with pytest.raises(ValueError):
+        db.list_runs(conn, match="xor")
+
+
 def test_delete_run_cascades(conn):
     run = _make_run("DELME", "todelete")
     db.insert_run(conn, run)
